@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { addTransaction, uploadReceipt, importCSV } from '../utils/api.js'
-import { CATEGORIES } from '../utils/format.js'
+import { CATEGORIES, getDefaultCurrency } from '../utils/format.js'
 
 const TABS = ['手動', 'レシート', 'CSV']
 
@@ -42,7 +42,7 @@ export default function Add() {
 function ManualForm({ onDone }) {
   const [form, setForm] = useState({
     amount: '',
-    currency: 'USD',
+    currency: getDefaultCurrency(),
     merchant: '',
     category: 'food',
     date: new Date().toISOString().split('T')[0]

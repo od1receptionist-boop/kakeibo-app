@@ -1,9 +1,40 @@
+import { useState } from 'react'
+import { getDefaultCurrency, setDefaultCurrency } from '../utils/format.js'
+
 export default function Settings() {
   const webhookUrl = `${window.location.origin}/api/webhook`
+  const [currency, setCurrency] = useState(getDefaultCurrency)
+
+  const handleCurrency = (c) => {
+    setDefaultCurrency(c)
+    setCurrency(c)
+  }
 
   return (
     <div style={{ flex: 1, paddingBottom: 80, paddingTop: 60 }}>
       <h2 style={{ padding: '16px 20px 24px', fontSize: 20, fontWeight: 600 }}>設定</h2>
+
+      {/* 地域設定 */}
+      <Section title="🌏 地域設定">
+        <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 12 }}>デフォルト通貨</div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          {[{ value: 'USD', label: '🇺🇸 USD（米国）' }, { value: 'JPY', label: '🇯🇵 JPY（日本）' }].map(opt => (
+            <button
+              key={opt.value}
+              onClick={() => handleCurrency(opt.value)}
+              style={{
+                flex: 1,
+                padding: '10px 0',
+                borderRadius: 10,
+                background: currency === opt.value ? 'var(--accent)' : 'var(--surface2)',
+                color: currency === opt.value ? '#0F0F0F' : 'var(--text)',
+                fontWeight: currency === opt.value ? 700 : 400,
+                fontSize: 14
+              }}
+            >{opt.label}</button>
+          ))}
+        </div>
+      </Section>
 
       {/* Triaショートカット設定ガイド */}
       <Section title="📱 Tria 自動連携（iOSショートカット）">

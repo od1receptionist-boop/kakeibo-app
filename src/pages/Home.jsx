@@ -2,13 +2,17 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import useTransactions from '../hooks/useTransactions.js'
 import TxItem from '../components/TxItem.jsx'
-import { formatAmount, monthLabel, prevMonth, nextMonth, currentMonth } from '../utils/format.js'
+import { formatAmount, monthLabel, prevMonth, nextMonth, currentMonth, getDefaultCurrency } from '../utils/format.js'
 
 export default function Home() {
   const [month, setMonth] = useState(currentMonth())
   const { txList, summary, loading, remove } = useTransactions(month)
   const navigate = useNavigate()
   const isCurrentMonth = month === currentMonth()
+  const defCurrency = getDefaultCurrency()
+  const primaryTotal = defCurrency === 'JPY' ? (summary?.totalJPY || 0) : (summary?.totalUSD || 0)
+  const secondaryTotal = defCurrency === 'JPY' ? (summary?.totalUSD || 0) : (summary?.totalJPY || 0)
+  const secondaryCurrency = defCurrency === 'JPY' ? 'USD' : 'JPY'
 
   return (
     <div style={{ flex: 1, paddingBottom: 80 }}>
@@ -35,12 +39,12 @@ export default function Home() {
             <div style={{ fontFamily: 'var(--font-mono)', fontSize: 42, fontWeight: 600, color: 'var(--text-muted)' }}>—</div>
           ) : (
             <div style={{ fontFamily: 'var(--font-mono)', fontSize: 42, fontWeight: 600, color: 'var(--red)' }}>
-              {formatAmount(summary?.totalUSD || 0, 'USD')}
+              {formatAmount(primaryTotal, defCurrency)}
             </div>
           )}
-          {summary?.totalJPY > 0 && (
+          {secondaryTotal > 0 && (
             <div style={{ fontFamily: 'var(--font-mono)', fontSize: 18, color: 'var(--text-muted)', marginTop: 4 }}>
-              + {formatAmount(summary.totalJPY, 'JPY')}
+              + {formatAmount(secondaryTotal, secondaryCurrency)}
             </div>
           )}
           {summary?.pendingCount > 0 && (
@@ -54,7 +58,7 @@ export default function Home() {
         {summary && (
           <div style={{ display: 'flex', justifyContent: 'center', gap: 32, marginTop: 20 }}>
             <Stat label="件数" value={`${summary.count}件`} />
-            <Stat label="1日平均" value={formatAmount(calcDailyAvg(summary.totalUSD, month), 'USD')} />
+            <Stat label="1日平均" value={formatAmount(calcDailyAvg(primaryTotal, month), defCurrency)} />
           </div>
         )}
       </div>

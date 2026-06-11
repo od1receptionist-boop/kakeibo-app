@@ -1,3 +1,10 @@
+export function getDefaultCurrency() {
+  return localStorage.getItem('defaultCurrency') || 'USD'
+}
+export function setDefaultCurrency(c) {
+  localStorage.setItem('defaultCurrency', c)
+}
+
 export const CATEGORIES = {
   food: { label: '食費', emoji: '🍜' },
   transport: { label: '交通', emoji: '🚗' },

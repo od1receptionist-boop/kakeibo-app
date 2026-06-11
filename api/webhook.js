@@ -45,9 +45,7 @@ export default async function handler(req, res) {
 }
 
 /**
- * Tria通知テキストをパース
- * フォーマット:
- *   "39.56 USD Triaカードで支払い\nUBER * EATS PENDING\n🎉 0.39 USDのキャッシュバック..."
+ * 通知テキストをパース（Tria / 日本カード 両対応）
  */
 function parseTriaNotification(text) {
   if (!text) return null
@@ -55,48 +53,75 @@ function parseTriaNotification(text) {
   const lines = text.split('\n').map(l => l.trim()).filter(Boolean)
 
   // キャッシュバック通知は除外
-  if (lines[0]?.includes('キャッシュバック') || lines[0]?.includes('cashback')) {
-    return null
+  if (lines[0]?.includes('キャッシュバック') || lines[0]?.includes('cashback')) return null
+
+  // ── Tria フォーマット: "39.56 USD Triaカードで支払い" ──
+  const triaMatch = lines[0]?.match(/^([\d.]+)\s+(USD|JPY)/i)
+  if (triaMatch) {
+    const amount = parseFloat(triaMatch[1])
+    const currency = triaMatch[2].toUpperCase()
+    const merchantLine = lines[1] || 'Unknown'
+    const isPending = merchantLine.toUpperCase().includes('PENDING')
+    const merchant = merchantLine.replace(/\s*PENDING\s*/i, '').trim()
+    return { amount, currency, merchant, category: guessCategoryFromMerchant(merchant), isPending, date: today() }
   }
 
-  // 1行目: "39.56 USD Triaカードで支払い"
-  const amountMatch = lines[0]?.match(/^([\d.]+)\s+(USD|JPY)/i)
-  if (!amountMatch) return null
+  // ── 日本カード汎用フォーマット ──
+  // 対応パターン:
+  //   楽天: "ご利用金額：1,234円 / 加盟店：スターバックス"
+  //   三井住友: "利用金額1,234円 スターバックスコーヒー"
+  //   PayPay通知: "PayPay支払い -890円 ローソン"
+  //   汎用: 金額（円）+ 店舗名が1テキスト内にある
 
-  const amount = parseFloat(amountMatch[1])
-  const currency = amountMatch[2].toUpperCase()
+  const fullText = lines.join(' ')
 
-  // 2行目: 店舗名
-  const merchantLine = lines[1] || 'Unknown'
-  const isPending = merchantLine.toUpperCase().includes('PENDING')
-  const merchant = merchantLine.replace(/\s*PENDING\s*/i, '').trim()
+  // 円建て金額を探す: 1,234円 / ¥1,234 / -1,234円
+  const jpyMatch = fullText.match(/[-−]?[\d,]+円/) || fullText.match(/¥[\d,]+/)
+  if (jpyMatch) {
+    const amountStr = jpyMatch[0].replace(/[^0-9]/g, '')
+    const amount = parseInt(amountStr, 10)
+    if (!amount) return null
 
-  // カテゴリ推定
-  const category = guessCategoryFromMerchant(merchant)
+    // 店舗名抽出: 「加盟店：XXX」パターン優先 → 金額・記号を除いた末尾テキスト
+    const storeMatch = fullText.match(/(?:加盟店|店舗|利用先|支払先)[：:]\s*([^\s/／]+)/)
+    let merchant
+    if (storeMatch) {
+      merchant = storeMatch[1]
+    } else {
+      // 金額表記・PayPayプレフィックスを除去して残りを店舗名とする
+      merchant = fullText
+        .replace(/[-−]?[\d,]+円/g, '')
+        .replace(/¥[\d,]+/g, '')
+        .replace(/PayPay支払い|PayPay決済|ご利用金額|利用金額/g, '')
+        .replace(/\s+/g, ' ')
+        .trim() || 'Unknown'
+    }
 
-  return {
-    amount,
-    currency,
-    merchant,
-    category,
-    isPending,
-    date: new Date().toISOString().split('T')[0]
+    return { amount, currency: 'JPY', merchant, category: guessCategoryFromMerchant(merchant), isPending: false, date: today() }
   }
+
+  return null
+}
+
+function today() {
+  return new Date().toISOString().split('T')[0]
 }
 
 /**
- * 店舗名からカテゴリを推定
+ * 店舗名からカテゴリを推定（英語・日本語対応）
  */
 function guessCategoryFromMerchant(merchant) {
   const m = merchant.toUpperCase()
 
-  if (/UBER|LYFT|METRO|BUS|TRAIN|PARKING/.test(m)) return 'transport'
-  if (/EATS|DOORDASH|GRUBHUB|IN-N-OUT|TACO|MCDONALD|STARBUCKS|COFFEE|RAMEN|SUSHI|RESTAURANT|DINER|GRILL|FOOD/.test(m)) return 'food'
-  if (/AMAZON|WALMART|TARGET|COSTCO|DOLLAR|CVS|WALGREEN/.test(m)) return 'shopping'
-  if (/NETFLIX|SPOTIFY|HULU|DISNEY|APPLE|GOOGLE|STEAM|GAME/.test(m)) return 'entertainment'
-  if (/HOSPITAL|PHARMACY|CLINIC|DENTAL|CVS RX/.test(m)) return 'health'
-  if (/SCHOOL|COLLEGE|TEXTBOOK|TUITION/.test(m)) return 'education'
-  if (/RENT|LEASE|ELECTRIC|GAS|WATER|INTERNET|WIFI/.test(m)) return 'housing'
+  const t = (re) => re.test(m)
+
+  if (t(/UBER|LYFT|METRO|BUS|TRAIN|PARKING|SUICA|PASMO|ICOCA|JAL|ANA|AIRLINE/) || t(/電車|バス|タクシー|駐車|高速/)) return 'transport'
+  if (t(/EATS|DOORDASH|GRUBHUB|IN-N-OUT|TACO|MCDONALD|STARBUCKS|COFFEE|RAMEN|SUSHI|RESTAURANT|DINER|GRILL|FOOD/) || t(/マクドナルド|スタバ|すき家|吉野家|松屋|ラーメン|寿司|定食|居酒屋|カフェ|コーヒー|ファミレス|焼肉|うどん|そば|弁当|デリバリー/)) return 'food'
+  if (t(/AMAZON|WALMART|TARGET|COSTCO|DOLLAR|CVS|WALGREEN/) || t(/イオン|西友|マルエツ|ライフ|ドンキ|ユニクロ|しまむら|無印|ニトリ|セブン|ファミマ|ローソン|ミニストップ/)) return 'shopping'
+  if (t(/NETFLIX|SPOTIFY|HULU|DISNEY|APPLE|GOOGLE|STEAM|GAME/) || t(/映画|カラオケ|ゲーム|ネットフリックス|ディズニー/)) return 'entertainment'
+  if (t(/HOSPITAL|PHARMACY|CLINIC|DENTAL/) || t(/病院|クリニック|薬局|ドラッグストア|マツキヨ|ツルハ|スギ薬局|調剤/)) return 'health'
+  if (t(/SCHOOL|COLLEGE|TEXTBOOK|TUITION/) || t(/塾|予備校|学校|大学|教材/)) return 'education'
+  if (t(/RENT|LEASE|ELECTRIC|GAS|WATER|INTERNET|WIFI/) || t(/家賃|電気|水道|ネット|通信|NTT|ソフトバンク|ドコモ/)) return 'housing'
 
   return 'other'
 }
