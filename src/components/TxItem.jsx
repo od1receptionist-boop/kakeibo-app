@@ -10,7 +10,7 @@ export default function TxItem({ tx, onDelete }) {
       gap: 12,
       padding: '14px 16px',
       borderBottom: '1px solid var(--border)',
-      opacity: tx.isPending ? 0.5 : 1
+      opacity: tx.is_pending ? 0.5 : 1
     }}>
       {/* カテゴリアイコン */}
       <div style={{
@@ -37,7 +37,7 @@ export default function TxItem({ tx, onDelete }) {
           textOverflow: 'ellipsis'
         }}>
           {tx.merchant}
-          {tx.isPending && (
+          {tx.is_pending && (
             <span style={{
               marginLeft: 6,
               fontSize: 10,

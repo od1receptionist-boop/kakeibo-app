@@ -153,8 +153,8 @@ function ReceiptForm({ onDone }) {
         color: 'var(--text-muted)'
       }}>
         <span style={{ fontSize: 40 }}>📷</span>
-        <span style={{ fontSize: 14 }}>レシートを撮影・選択</span>
-        <input type="file" accept="image/*" capture="environment" onChange={pick} style={{ display: 'none' }} />
+        <span style={{ fontSize: 14 }}>レシート撮影・画像・PDF</span>
+        <input type="file" accept="image/*,application/pdf" onChange={pick} style={{ display: 'none' }} />
       </label>
 
       {preview && <img src={preview} alt="receipt" style={{ borderRadius: 8, maxHeight: 200, objectFit: 'contain' }} />}

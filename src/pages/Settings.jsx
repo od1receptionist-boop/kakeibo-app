@@ -1,10 +1,16 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { getDefaultCurrency, setDefaultCurrency } from '../utils/format.js'
-import { logout } from '../utils/auth.js'
+import { logout, supabase } from '../utils/auth.js'
 
 export default function Settings({ onLogout }) {
   const webhookUrl = `${window.location.origin}/api/webhook`
   const [currency, setCurrency] = useState(getDefaultCurrency)
+  const [webhookToken, setWebhookToken] = useState(null)
+
+  useEffect(() => {
+    supabase.from('user_profiles').select('webhook_token').single()
+      .then(({ data }) => { if (data) setWebhookToken(data.webhook_token) })
+  }, [])
 
   const handleCurrency = (c) => {
     setDefaultCurrency(c)
@@ -54,21 +60,15 @@ export default function Settings({ onLogout }) {
       </Section>
 
       {/* Webhook URL */}
-      <Section title="🔗 Webhook URL">
-        <div style={{
-          background: 'var(--surface2)',
-          borderRadius: 8,
-          padding: '12px 14px',
-          fontFamily: 'var(--font-mono)',
-          fontSize: 13,
-          wordBreak: 'break-all',
-          color: 'var(--accent)'
-        }}>
+      <Section title="🔗 個人Webhook">
+        <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8 }}>URL</p>
+        <div style={{ background: 'var(--surface2)', borderRadius: 8, padding: '12px 14px', fontFamily: 'var(--font-mono)', fontSize: 12, wordBreak: 'break-all', color: 'var(--accent)', marginBottom: 12 }}>
           {webhookUrl}
         </div>
-        <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 8 }}>
-          環境変数 WEBHOOK_TOKEN を設定して不正アクセスを防いでください。
-        </p>
+        <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8 }}>トークン（x-webhook-tokenヘッダーに設定）</p>
+        <div style={{ background: 'var(--surface2)', borderRadius: 8, padding: '12px 14px', fontFamily: 'var(--font-mono)', fontSize: 12, wordBreak: 'break-all', color: 'var(--yellow)' }}>
+          {webhookToken || '読み込み中...'}
+        </div>
       </Section>
 
       {/* CSV取り込み方法 */}

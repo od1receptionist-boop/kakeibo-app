@@ -1,45 +1,43 @@
+import { getToken } from './auth.js'
+
 const BASE = import.meta.env.VITE_API_BASE || ''
 
-export async function fetchTransactions(month) {
-  const res = await fetch(`${BASE}/api/transactions?month=${month}`)
-  return res.json()
-}
-
-export async function addTransaction(data) {
-  const res = await fetch(`${BASE}/api/transactions`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data)
+async function authFetch(path, options = {}) {
+  const token = await getToken()
+  const res = await fetch(`${BASE}${path}`, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...options.headers,
+    }
   })
+  if (res.status === 401) {
+    window.dispatchEvent(new Event('auth:expired'))
+  }
   return res.json()
 }
 
-export async function deleteTransaction(month, id) {
-  const res = await fetch(`${BASE}/api/transactions?month=${month}&id=${id}`, {
-    method: 'DELETE'
-  })
-  return res.json()
+export function fetchTransactions(month) {
+  return authFetch(`/api/transactions?month=${month}`)
 }
 
-export async function fetchSummary(month) {
-  const res = await fetch(`${BASE}/api/summary?month=${month}`)
-  return res.json()
+export function addTransaction(data) {
+  return authFetch('/api/transactions', { method: 'POST', body: JSON.stringify(data) })
 }
 
-export async function uploadReceipt(imageBase64, mediaType = 'image/jpeg') {
-  const res = await fetch(`${BASE}/api/receipt`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ imageBase64, mediaType })
-  })
-  return res.json()
+export function deleteTransaction(month, id) {
+  return authFetch(`/api/transactions?month=${month}&id=${id}`, { method: 'DELETE' })
 }
 
-export async function importCSV(csvText, cardType = 'generic') {
-  const res = await fetch(`${BASE}/api/csv-import`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ csvText, cardType })
-  })
-  return res.json()
+export function fetchSummary(month) {
+  return authFetch(`/api/summary?month=${month}`)
+}
+
+export function uploadReceipt(imageBase64, mediaType = 'image/jpeg') {
+  return authFetch('/api/receipt', { method: 'POST', body: JSON.stringify({ imageBase64, mediaType }) })
+}
+
+export function importCSV(csvText, cardType = 'generic') {
+  return authFetch('/api/csv-import', { method: 'POST', body: JSON.stringify({ csvText, cardType }) })
 }

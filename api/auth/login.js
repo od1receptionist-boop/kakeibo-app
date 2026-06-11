@@ -1,14 +1,11 @@
-import { sign, setCookieHeader } from '../_auth.js'
+import { supabase } from '../_supabase.js'
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end()
+  const { email, password } = req.body
+  if (!email || !password) return res.status(400).json({ error: 'email and password required' })
 
-  const { password } = req.body
-  if (!password || password !== (process.env.APP_PASSWORD || '').trim()) {
-    return res.status(401).json({ error: 'パスワードが違います' })
-  }
-
-  const token = sign({ sub: 'owner', exp: Date.now() + 30 * 24 * 60 * 60 * 1000 })
-  res.setHeader('Set-Cookie', setCookieHeader(token))
-  return res.status(200).json({ ok: true })
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+  if (error) return res.status(401).json({ error: error.message })
+  return res.status(200).json({ session: data.session, user: data.user })
 }

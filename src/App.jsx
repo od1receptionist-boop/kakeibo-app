@@ -6,24 +6,30 @@ import Add from './pages/Add.jsx'
 import Settings from './pages/Settings.jsx'
 import Login from './pages/Login.jsx'
 import Nav from './components/Nav.jsx'
-import { checkAuth } from './utils/auth.js'
+import { supabase, logout } from './utils/auth.js'
 
 export default function App() {
-  const [authed, setAuthed] = useState(null) // null = loading
+  const [session, setSession] = useState(undefined) // undefined = loading
 
   useEffect(() => {
-    checkAuth()
-      .then(ok => setAuthed(ok))
-      .catch(() => setAuthed(false))
+    supabase.auth.getSession().then(({ data }) => setSession(data.session))
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, s) => setSession(s))
+
+    const onExpired = () => setSession(null)
+    window.addEventListener('auth:expired', onExpired)
+    return () => {
+      subscription.unsubscribe()
+      window.removeEventListener('auth:expired', onExpired)
+    }
   }, [])
 
-  if (authed === null) return (
+  if (session === undefined) return (
     <div style={{ minHeight: '100svh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div style={{ color: 'var(--text-muted)', fontSize: 14 }}>読み込み中...</div>
     </div>
   )
 
-  if (!authed) return <Login onLogin={() => setAuthed(true)} />
+  if (!session) return <Login onLogin={() => {}} />
 
   return (
     <BrowserRouter>
@@ -31,7 +37,7 @@ export default function App() {
         <Route path="/" element={<Home />} />
         <Route path="/detail" element={<Detail />} />
         <Route path="/add" element={<Add />} />
-        <Route path="/settings" element={<Settings onLogout={() => setAuthed(false)} />} />
+        <Route path="/settings" element={<Settings onLogout={async () => { await logout(); setSession(null) }} />} />
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
       <Nav />
