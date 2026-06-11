@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl -s -X POST http://localhost:3000/api/transactions -H 'Content-Type: application/json' -d '{\"date\":\"2026-06-10\",\"amount\":12.50,\"currency\":\"USD\",\"merchant\":\"Test Store\",\"category\":\"food\"}')",
+      "Bash(python3 -m json.tool)",
+      "Bash(curl -s \"http://localhost:3000/api/transactions?month=2026-06\")",
+      "Bash(curl -s -X POST http://localhost:3000/api/transactions -H 'Content-Type: application/json' -d '{\"date\":\"2026-06-10\",\"amount\":5.00,\"currency\":\"USD\",\"merchant\":\"Delete Me\",\"category\":\"other\"}')",
+      "Bash(python3 -c \"import sys,json; data=json.load\\(sys.stdin\\); print\\(f'count: {len\\(data[\\\\\"txList\\\\\"]\\)}'\\)\")",
+      "Bash(curl *)",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); [print\\(t['merchant'], t['amount'], t['source']\\) for t in d['txList']]\")"
+    ]
+  }
+}

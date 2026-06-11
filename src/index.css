@@ -1,0 +1,67 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;600&family=Noto+Sans+JP:wght@400;500&display=swap');
+
+:root {
+  --bg: #0F0F0F;
+  --surface: #1A1A1A;
+  --surface2: #242424;
+  --border: #2A2A2A;
+  --text: #F5F5F5;
+  --text-muted: #888;
+  --accent: #4ADE80;
+  --red: #F87171;
+  --yellow: #FBBF24;
+  --radius: 12px;
+  --font-mono: 'JetBrains Mono', monospace;
+  --font-ui: 'Inter', 'Noto Sans JP', sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html, body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: 16px;
+  min-height: 100dvh;
+  overscroll-behavior: none;
+}
+
+#root {
+  max-width: 430px;
+  margin: 0 auto;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+
+button {
+  cursor: pointer;
+  border: none;
+  background: none;
+  font-family: inherit;
+  color: inherit;
+}
+
+input, textarea, select {
+  font-family: inherit;
+  color: var(--text);
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+  width: 100%;
+  font-size: 16px;
+  outline: none;
+}
+
+input:focus, textarea:focus, select:focus {
+  border-color: var(--accent);
+}
+
+/* スクロールバー非表示 */
+::-webkit-scrollbar { display: none; }
