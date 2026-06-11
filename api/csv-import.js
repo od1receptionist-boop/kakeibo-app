@@ -1,7 +1,8 @@
 // api/csv-import.js - PayPay / クレカ CSV取り込み
 import { saveTx } from './_kv.js'
+import { requireAuth } from './_auth.js'
 
-export default async function handler(req, res) {
+export default requireAuth(async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end()
 
   const { csvText, cardType = 'generic' } = req.body
@@ -20,7 +21,7 @@ export default async function handler(req, res) {
   } catch (err) {
     return res.status(500).json({ error: err.message })
   }
-}
+})
 
 function parseCSV(csvText, cardType) {
   const lines = csvText.trim().split('\n').slice(1) // ヘッダー除外

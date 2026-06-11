@@ -1,9 +1,10 @@
 // api/receipt.js - レシート画像 → Claude OCR → トランザクションデータ返却
 import Anthropic from '@anthropic-ai/sdk'
+import { requireAuth } from './_auth.js'
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
-export default async function handler(req, res) {
+export default requireAuth(async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end()
 
   const { imageBase64, mediaType = 'image/jpeg' } = req.body
@@ -57,6 +58,6 @@ export default async function handler(req, res) {
     console.error('Receipt OCR error:', err)
     return res.status(500).json({ error: err.message })
   }
-}
+})
 
 export const config = { api: { bodyParser: { sizeLimit: '5mb' } } }

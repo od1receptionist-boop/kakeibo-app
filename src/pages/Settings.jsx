@@ -1,13 +1,19 @@
 import { useState } from 'react'
 import { getDefaultCurrency, setDefaultCurrency } from '../utils/format.js'
+import { logout } from '../utils/auth.js'
 
-export default function Settings() {
+export default function Settings({ onLogout }) {
   const webhookUrl = `${window.location.origin}/api/webhook`
   const [currency, setCurrency] = useState(getDefaultCurrency)
 
   const handleCurrency = (c) => {
     setDefaultCurrency(c)
     setCurrency(c)
+  }
+
+  const handleLogout = async () => {
+    await logout()
+    onLogout()
   }
 
   return (
@@ -89,6 +95,22 @@ export default function Settings() {
           </div>
         ))}
       </Section>
+
+      {/* ログアウト */}
+      <div style={{ margin: '0 16px 24px' }}>
+        <button
+          onClick={handleLogout}
+          style={{
+            width: '100%',
+            padding: '14px',
+            background: 'var(--surface)',
+            color: 'var(--red)',
+            borderRadius: 'var(--radius)',
+            fontWeight: 600,
+            fontSize: 15
+          }}
+        >ログアウト</button>
+      </div>
     </div>
   )
 }
