@@ -12,7 +12,9 @@ export default function App() {
   const [authed, setAuthed] = useState(null) // null = loading
 
   useEffect(() => {
-    checkAuth().then(ok => setAuthed(ok))
+    checkAuth()
+      .then(ok => setAuthed(ok))
+      .catch(() => setAuthed(false))
   }, [])
 
   if (authed === null) return (
