@@ -73,6 +73,58 @@ export default function Settings({ onLogout }) {
         </div>
       </Section>
 
+      {/* メール自動取り込み */}
+      <Section title="📧 メール自動取り込み（Google Apps Script）">
+        <p style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.6, marginBottom: 12 }}>
+          ANAカード・クレカの利用通知メールを自動でAIが解析して登録します。
+        </p>
+        <Step n={1} text="script.google.com を開き「新しいプロジェクト」を作成" />
+        <Step n={2} text="下記のコードを貼り付けて保存" />
+        <Step n={3} text="WEBHOOK_URL と WEBHOOK_TOKEN を自分の値に書き換え" />
+        <Step n={4} text="「実行」→ setupTrigger を実行してGmailアクセスを許可" />
+        <Step n={5} text="5分ごとに自動でメールをチェック・登録されます" />
+        <div style={{ marginTop: 12, background: 'var(--bg)', borderRadius: 8, padding: 12, fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-muted)', whiteSpace: 'pre', overflowX: 'auto', lineHeight: 1.7 }}>
+{`const WEBHOOK_URL = "${window.location.origin}/api/email-import";
+const WEBHOOK_TOKEN = "${webhookToken || 'YOUR_TOKEN'}";
+// 取り込むメール送信元（カード会社のアドレスを追加）
+const FROM_FILTERS = [
+  "notice@ana-card.co.jp",
+  "info@card.jcb.co.jp",
+  "利用通知"  // 件名キーワードでもOK
+];
+
+function checkNewEmails() {
+  const query = FROM_FILTERS
+    .map(f => f.includes('@') ? 'from:' + f : 'subject:' + f)
+    .join(' OR ');
+  const threads = GmailApp.search(
+    'is:unread (' + query + ')', 0, 20
+  );
+  threads.forEach(thread => {
+    const msg = thread.getMessages()[0];
+    const payload = {
+      subject: msg.getSubject(),
+      body: msg.getPlainBody().slice(0, 2000),
+      from: msg.getFrom()
+    };
+    UrlFetchApp.fetch(WEBHOOK_URL, {
+      method: 'post',
+      contentType: 'application/json',
+      headers: { 'x-webhook-token': WEBHOOK_TOKEN },
+      payload: JSON.stringify(payload),
+      muteHttpExceptions: true
+    });
+    thread.markRead();
+  });
+}
+
+function setupTrigger() {
+  ScriptApp.newTrigger('checkNewEmails')
+    .timeBased().everyMinutes(5).create();
+}`}
+        </div>
+      </Section>
+
       {/* CSV取り込み方法 */}
       <Section title="📄 CSV取り込み方法">
         <p style={{ fontSize: 14, color: 'var(--text-muted)', lineHeight: 1.6 }}>
@@ -81,21 +133,6 @@ export default function Settings({ onLogout }) {
         <p style={{ fontSize: 14, color: 'var(--text-muted)', lineHeight: 1.6, marginTop: 8 }}>
           <b style={{ color: 'var(--text)' }}>クレカ:</b> 各カード会社のWebサイトから明細CSVをダウンロード
         </p>
-      </Section>
-
-      {/* 環境変数 */}
-      <Section title="⚙️ 必要な環境変数（Vercel）">
-        {[
-          ['ANTHROPIC_API_KEY', 'Claude API キー（レシートOCR）'],
-          ['KV_REST_API_URL', 'Vercel KV URL'],
-          ['KV_REST_API_TOKEN', 'Vercel KV Token'],
-          ['WEBHOOK_TOKEN', 'Webhook認証トークン（任意）']
-        ].map(([k, v]) => (
-          <div key={k} style={{ marginBottom: 8 }}>
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 13, color: 'var(--accent)' }}>{k}</div>
-            <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{v}</div>
-          </div>
-        ))}
       </Section>
 
       {/* ログアウト */}
