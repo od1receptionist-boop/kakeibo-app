@@ -1,12 +1,15 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import useTransactions from '../hooks/useTransactions.js'
 import TxItem from '../components/TxItem.jsx'
-import { formatAmount, monthLabel, prevMonth, nextMonth, currentMonth, getDefaultCurrency } from '../utils/format.js'
+import EditModal from '../components/EditModal.jsx'
+import { formatAmount, monthLabel, prevMonth, nextMonth, currentMonth, getDefaultCurrency, getUSDtoJPY } from '../utils/format.js'
 
 export default function Home() {
   const [month, setMonth] = useState(currentMonth())
-  const { txList, summary, loading, remove } = useTransactions(month)
+  const { txList, summary, loading, remove, update } = useTransactions(month)
+  const [editTx, setEditTx] = useState(null)
+  const [fxRate, setFxRate] = useState(null)
   const navigate = useNavigate()
   const isCurrentMonth = month === currentMonth()
   const defCurrency = getDefaultCurrency()
@@ -14,14 +17,16 @@ export default function Home() {
   const secondaryTotal = defCurrency === 'JPY' ? (summary?.totalUSD || 0) : (summary?.totalJPY || 0)
   const secondaryCurrency = defCurrency === 'JPY' ? 'USD' : 'JPY'
 
+  useEffect(() => {
+    getUSDtoJPY().then(rate => { if (rate) setFxRate(rate) })
+  }, [])
+
   return (
     <div style={{ flex: 1, paddingBottom: 80 }}>
-      {/* ヘッダー */}
       <div style={{
         padding: '60px 20px 24px',
         background: 'linear-gradient(180deg, var(--surface) 0%, var(--bg) 100%)'
       }}>
-        {/* 月切り替え */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 20, marginBottom: 24 }}>
           <button onClick={() => setMonth(prevMonth(month))} style={{ color: 'var(--text-muted)', fontSize: 20 }}>‹</button>
           <span style={{ fontSize: 16, fontWeight: 500 }}>{monthLabel(month)}</span>
@@ -32,7 +37,6 @@ export default function Home() {
           >›</button>
         </div>
 
-        {/* 合計支出 */}
         <div style={{ textAlign: 'center' }}>
           <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 6 }}>今月の支出</div>
           {loading ? (
@@ -47,6 +51,11 @@ export default function Home() {
               + {formatAmount(secondaryTotal, secondaryCurrency)}
             </div>
           )}
+          {defCurrency === 'USD' && fxRate && primaryTotal > 0 && (
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 15, color: 'var(--text-muted)', marginTop: 4 }}>
+              ≈ ¥{Math.round(primaryTotal * fxRate).toLocaleString()}
+            </div>
+          )}
           {summary?.pendingCount > 0 && (
             <div style={{ fontSize: 12, color: 'var(--yellow)', marginTop: 8 }}>
               {summary.pendingCount}件 PENDING含む
@@ -54,7 +63,6 @@ export default function Home() {
           )}
         </div>
 
-        {/* サマリーバー */}
         {summary && (
           <div style={{ display: 'flex', justifyContent: 'center', gap: 32, marginTop: 20 }}>
             <Stat label="件数" value={`${summary.count}件`} />
@@ -63,7 +71,6 @@ export default function Home() {
         )}
       </div>
 
-      {/* トランザクション一覧 */}
       <div style={{ marginTop: 8 }}>
         <div style={{ padding: '12px 16px 8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>履歴</span>
@@ -79,24 +86,32 @@ export default function Home() {
             <button
               onClick={() => navigate('/add')}
               style={{
-                marginTop: 16,
-                padding: '10px 24px',
-                background: 'var(--accent)',
-                color: '#0F0F0F',
-                borderRadius: 20,
-                fontWeight: 600,
-                fontSize: 14
+                marginTop: 16, padding: '10px 24px',
+                background: 'var(--accent)', color: '#0F0F0F',
+                borderRadius: 20, fontWeight: 600, fontSize: 14
               }}
-            >
-              追加する
-            </button>
+            >追加する</button>
           </div>
         )}
 
         {txList.map(tx => (
-          <TxItem key={tx.id} tx={tx} onDelete={() => remove(tx.id)} />
+          <TxItem
+            key={tx.id}
+            tx={tx}
+            fxRate={fxRate}
+            onEdit={setEditTx}
+            onDelete={() => remove(tx.id)}
+          />
         ))}
       </div>
+
+      {editTx && (
+        <EditModal
+          tx={editTx}
+          onSave={update}
+          onClose={() => setEditTx(null)}
+        />
+      )}
     </div>
   )
 }

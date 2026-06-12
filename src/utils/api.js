@@ -41,3 +41,19 @@ export function uploadReceipt(imageBase64, mediaType = 'image/jpeg') {
 export function importCSV(csvText, cardType = 'generic') {
   return authFetch('/api/csv-import', { method: 'POST', body: JSON.stringify({ csvText, cardType }) })
 }
+
+export function updateTransaction(id, data) {
+  return authFetch(`/api/transactions?id=${id}`, { method: 'PUT', body: JSON.stringify(data) })
+}
+
+export function fetchRecurring() {
+  return authFetch('/api/recurring')
+}
+
+export function addRecurring(data) {
+  return authFetch('/api/recurring', { method: 'POST', body: JSON.stringify(data) })
+}
+
+export function deleteRecurring(id) {
+  return authFetch(`/api/recurring?id=${id}`, { method: 'DELETE' })
+}

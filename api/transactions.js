@@ -29,6 +29,21 @@ export default requireAuth(async function handler(req, res) {
     return res.status(201).json({ tx: data })
   }
 
+  if (req.method === 'PUT') {
+    const { id } = req.query
+    if (!id) return res.status(400).json({ error: 'id required' })
+    const allowed = ['amount', 'currency', 'merchant', 'category', 'date', 'is_pending']
+    const updates = {}
+    for (const k of allowed) {
+      if (req.body[k] !== undefined) updates[k] = req.body[k]
+    }
+    if (updates.amount !== undefined) updates.amount = parseFloat(updates.amount)
+    const { data, error } = await supabase
+      .from('transactions').update(updates).eq('id', id).eq('user_id', userId).select().single()
+    if (error) return res.status(500).json({ error: error.message })
+    return res.status(200).json({ tx: data })
+  }
+
   if (req.method === 'DELETE') {
     const { id } = req.query
     if (!id) return res.status(400).json({ error: 'id required' })

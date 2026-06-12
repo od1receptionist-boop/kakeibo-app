@@ -1,9 +1,9 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { addTransaction, uploadReceipt, importCSV } from '../utils/api.js'
+import { addTransaction, uploadReceipt, importCSV, fetchRecurring, addRecurring, deleteRecurring } from '../utils/api.js'
 import { CATEGORIES, getDefaultCurrency } from '../utils/format.js'
 
-const TABS = ['手動', 'レシート', 'CSV']
+const TABS = ['手動', 'レシート', 'CSV', '定期']
 
 export default function Add() {
   const [tab, setTab] = useState(0)
@@ -14,7 +14,7 @@ export default function Add() {
       <h2 style={{ padding: '16px 20px 20px', fontSize: 20, fontWeight: 600 }}>追加</h2>
 
       {/* タブ */}
-      <div style={{ display: 'flex', padding: '0 16px', gap: 8, marginBottom: 24 }}>
+      <div style={{ display: 'flex', padding: '0 16px', gap: 8, marginBottom: 24, overflowX: 'auto' }}>
         {TABS.map((t, i) => (
           <button
             key={t}
@@ -25,7 +25,9 @@ export default function Add() {
               background: tab === i ? 'var(--accent)' : 'var(--surface)',
               color: tab === i ? '#0F0F0F' : 'var(--text)',
               fontWeight: tab === i ? 600 : 400,
-              fontSize: 14
+              fontSize: 14,
+              whiteSpace: 'nowrap',
+              flexShrink: 0
             }}
           >{t}</button>
         ))}
@@ -34,6 +36,7 @@ export default function Add() {
       {tab === 0 && <ManualForm onDone={() => navigate('/')} />}
       {tab === 1 && <ReceiptForm onDone={() => navigate('/')} />}
       {tab === 2 && <CSVForm onDone={() => navigate('/')} />}
+      {tab === 3 && <RecurringForm />}
     </div>
   )
 }
@@ -212,6 +215,100 @@ function CSVForm({ onDone }) {
       {result?.success && (
         <p style={{ color: 'var(--accent)', textAlign: 'center' }}>✓ {result.count}件を取り込みました</p>
       )}
+    </div>
+  )
+}
+
+/* ── 定期支出管理 ── */
+function RecurringForm() {
+  const [list, setList] = useState([])
+  const [form, setForm] = useState({
+    merchant: '', amount: '', currency: getDefaultCurrency(),
+    category: 'other', day_of_month: '1'
+  })
+  const [loading, setLoading] = useState(false)
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
+
+  useEffect(() => {
+    fetchRecurring().then(r => setList(r.list || []))
+  }, [])
+
+  const add = async () => {
+    if (!form.merchant || !form.amount) return
+    setLoading(true)
+    const res = await addRecurring(form)
+    if (res.item) setList(prev => [...prev, res.item])
+    setForm({ merchant: '', amount: '', currency: getDefaultCurrency(), category: 'other', day_of_month: '1' })
+    setLoading(false)
+  }
+
+  const remove = async (id) => {
+    await deleteRecurring(id)
+    setList(prev => prev.filter(r => r.id !== id))
+  }
+
+  return (
+    <div style={{ padding: '0 16px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <p style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.6 }}>
+        毎月繰り返す支出を登録。月の初回起動時に自動で追加されます。
+      </p>
+
+      {/* 登録済み一覧 */}
+      {list.length > 0 && (
+        <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', overflow: 'hidden' }}>
+          {list.map(r => (
+            <div key={r.id} style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '12px 16px', borderBottom: '1px solid var(--border)'
+            }}>
+              <div>
+                <div style={{ fontWeight: 500, fontSize: 14 }}>{r.merchant}</div>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
+                  毎月{r.day_of_month}日 · {r.currency === 'JPY' ? `¥${r.amount}` : `$${r.amount}`}
+                </div>
+              </div>
+              <button onClick={() => remove(r.id)} style={{ color: 'var(--red)', fontSize: 18, padding: '4px 8px' }}>×</button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* 新規追加フォーム */}
+      <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', padding: 16, display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <Label>新規追加</Label>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <div style={{ flex: 1 }}>
+            <Label>金額</Label>
+            <input type="number" inputMode="decimal" placeholder="0.00" value={form.amount} onChange={e => set('amount', e.target.value)} style={{ fontFamily: 'var(--font-mono)', fontSize: 18 }} />
+          </div>
+          <div style={{ width: 90 }}>
+            <Label>通貨</Label>
+            <select value={form.currency} onChange={e => set('currency', e.target.value)}>
+              <option value="USD">USD</option>
+              <option value="JPY">JPY</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <Label>店舗名 / サービス名</Label>
+          <input placeholder="Netflix" value={form.merchant} onChange={e => set('merchant', e.target.value)} />
+        </div>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <div style={{ flex: 1 }}>
+            <Label>カテゴリ</Label>
+            <select value={form.category} onChange={e => set('category', e.target.value)}>
+              {Object.entries(CATEGORIES).map(([k, v]) => (
+                <option key={k} value={k}>{v.emoji} {v.label}</option>
+              ))}
+            </select>
+          </div>
+          <div style={{ width: 90 }}>
+            <Label>引き落とし日</Label>
+            <input type="number" min="1" max="31" value={form.day_of_month} onChange={e => set('day_of_month', e.target.value)} />
+          </div>
+        </div>
+        <Btn onClick={add} loading={loading}>追加する</Btn>
+      </div>
     </div>
   )
 }

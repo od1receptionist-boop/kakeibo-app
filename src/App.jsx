@@ -7,13 +7,39 @@ import Settings from './pages/Settings.jsx'
 import Login from './pages/Login.jsx'
 import Nav from './components/Nav.jsx'
 import { supabase, logout } from './utils/auth.js'
+import { fetchRecurring, addTransaction, fetchTransactions } from './utils/api.js'
+import { currentMonth } from './utils/format.js'
+
+async function applyRecurringForMonth() {
+  const key = `recurring_applied_${currentMonth()}`
+  if (localStorage.getItem(key)) return
+  const month = currentMonth()
+  const today = new Date()
+  const [txRes, recRes] = await Promise.all([fetchTransactions(month), fetchRecurring()])
+  const existing = (txRes.txList || []).filter(t => t.source === 'recurring').map(t => t.merchant)
+  const toAdd = (recRes.list || []).filter(r =>
+    today.getDate() >= r.day_of_month && !existing.includes(r.merchant)
+  )
+  await Promise.all(toAdd.map(r => addTransaction({
+    merchant: r.merchant, amount: r.amount, currency: r.currency,
+    category: r.category, date: `${month}-${String(r.day_of_month).padStart(2, '0')}`,
+    source: 'recurring'
+  })))
+  localStorage.setItem(key, '1')
+}
 
 export default function App() {
   const [session, setSession] = useState(undefined) // undefined = loading
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => setSession(data.session))
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, s) => setSession(s))
+    supabase.auth.getSession().then(({ data }) => {
+      setSession(data.session)
+      if (data.session) applyRecurringForMonth().catch(() => {})
+    })
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, s) => {
+      setSession(s)
+      if (s) applyRecurringForMonth().catch(() => {})
+    })
 
     const onExpired = () => setSession(null)
     window.addEventListener('auth:expired', onExpired)

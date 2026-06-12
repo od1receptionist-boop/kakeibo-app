@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { fetchTransactions, fetchSummary, deleteTransaction } from '../utils/api.js'
+import { fetchTransactions, fetchSummary, deleteTransaction, updateTransaction } from '../utils/api.js'
 import { currentMonth } from '../utils/format.js'
 
 export default function useTransactions(month = currentMonth()) {
@@ -32,5 +32,11 @@ export default function useTransactions(month = currentMonth()) {
     setTxList(prev => prev.filter(t => t.id !== id))
   }
 
-  return { txList, summary, loading, error, reload: load, remove }
+  const update = async (id, data) => {
+    const res = await updateTransaction(id, data)
+    if (res.tx) setTxList(prev => prev.map(t => t.id === id ? res.tx : t))
+    return res
+  }
+
+  return { txList, summary, loading, error, reload: load, remove, update }
 }

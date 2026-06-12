@@ -48,3 +48,20 @@ export function nextMonth(month) {
   const d = new Date(y, m, 1)
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
 }
+
+export async function getUSDtoJPY() {
+  const cached = localStorage.getItem('fx_usd_jpy')
+  if (cached) {
+    const { rate, ts } = JSON.parse(cached)
+    if (Date.now() - ts < 3600_000) return rate
+  }
+  try {
+    const res = await fetch('https://api.frankfurter.app/latest?from=USD&to=JPY')
+    const json = await res.json()
+    const rate = json.rates.JPY
+    localStorage.setItem('fx_usd_jpy', JSON.stringify({ rate, ts: Date.now() }))
+    return rate
+  } catch {
+    return null
+  }
+}
