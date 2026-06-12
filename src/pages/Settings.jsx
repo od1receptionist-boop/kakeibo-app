@@ -75,22 +75,40 @@ export default function Settings({ onLogout }) {
 
       {/* メール自動取り込み */}
       <Section title="📧 メール自動取り込み（Google Apps Script）">
-        <p style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.6, marginBottom: 12 }}>
-          ANAカード・クレカの利用通知メールを自動でAIが解析して登録します。
+        <p style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.6, marginBottom: 8 }}>
+          Vpass・JCB・Amex・PayPayなど<b style={{color:'var(--text)'}}>どのカードでも対応</b>。AIがメール文面を解析するためフォーマット不問。
         </p>
+        <div style={{ background: 'var(--bg)', borderRadius: 8, padding: '10px 12px', marginBottom: 14 }}>
+          {[
+            ['ANA Visa / Vpass（三井住友）', 'vpass@vpass.ne.jp'],
+            ['JCB', 'info@card.jcb.co.jp'],
+            ['Amex Japan', 'AmericanExpress@welcome.aexp.com'],
+            ['楽天カード', 'rakuten_card@rakuten.co.jp'],
+            ['PayPay Card', 'notice@pay-statement.jp'],
+            ['その他', '件名に「ご利用のお知らせ」でも可'],
+          ].map(([name, addr]) => (
+            <div key={name} style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: '1px solid var(--border)', fontSize: 12 }}>
+              <span style={{ color: 'var(--text-muted)' }}>{name}</span>
+              <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--accent)', fontSize: 11 }}>{addr}</span>
+            </div>
+          ))}
+          <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 8 }}>※ 実際のアドレスはカード会社からのメールで要確認</p>
+        </div>
         <Step n={1} text="script.google.com を開き「新しいプロジェクト」を作成" />
         <Step n={2} text="下記のコードを貼り付けて保存" />
-        <Step n={3} text="WEBHOOK_URL と WEBHOOK_TOKEN を自分の値に書き換え" />
+        <Step n={3} text="FROM_FILTERS に使っているカードのアドレスを追加" />
         <Step n={4} text="「実行」→ setupTrigger を実行してGmailアクセスを許可" />
         <Step n={5} text="5分ごとに自動でメールをチェック・登録されます" />
         <div style={{ marginTop: 12, background: 'var(--bg)', borderRadius: 8, padding: 12, fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-muted)', whiteSpace: 'pre', overflowX: 'auto', lineHeight: 1.7 }}>
 {`const WEBHOOK_URL = "${window.location.origin}/api/email-import";
 const WEBHOOK_TOKEN = "${webhookToken || 'YOUR_TOKEN'}";
-// 取り込むメール送信元（カード会社のアドレスを追加）
+// 使っているカードのアドレスをここに追加
 const FROM_FILTERS = [
-  "notice@ana-card.co.jp",
-  "info@card.jcb.co.jp",
-  "利用通知"  // 件名キーワードでもOK
+  "vpass@vpass.ne.jp",          // ANA Visa (Vpass)
+  "info@card.jcb.co.jp",        // JCB
+  "AmericanExpress@welcome.aexp.com", // Amex
+  // "rakuten_card@rakuten.co.jp",
+  // "ご利用のお知らせ",  // 件名キーワードも可
 ];
 
 function checkNewEmails() {
