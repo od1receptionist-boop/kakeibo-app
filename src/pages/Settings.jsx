@@ -50,13 +50,15 @@ export default function Settings({ onLogout }) {
 
       {/* Triaショートカット設定ガイド */}
       <Section title="📱 Tria 自動連携（iOSショートカット）">
+        <p style={{ fontSize: 12, color: 'var(--yellow)', marginBottom: 12, lineHeight: 1.5 }}>
+          ⚠️ iOS 18以降、通知トリガーは廃止されました。代わりに「アプリを開く」トリガーを使うか、手動でショートカットを実行してください。
+        </p>
         <Step n={1} text="iPhoneの「ショートカット」アプリを開く" />
-        <Step n={2} text="「オートメーション」→「＋」→「個人用オートメーション」" />
-        <Step n={3} text="「通知」→「アプリ」→「Tria」を選択" />
-        <Step n={4} text="アクション追加:「URLの内容を取得」を選択" />
-        <Step n={5} text={`URL: ${webhookUrl}`} mono />
-        <Step n={6} text='メソッド: POST / ヘッダー: x-webhook-token: （環境変数の値）' />
-        <Step n={7} text='本文（JSON): {"text": "{{通知コンテンツ}}", "source": "tria"}' mono />
+        <Step n={2} text="「＋」→「アクション追加」→「URLの内容を取得」を選択" />
+        <Step n={3} text={`URL: ${webhookUrl}`} mono />
+        <Step n={4} text={`メソッド: POST / ヘッダー: x-webhook-token: ${webhookToken || '（下記トークン）'}`} mono />
+        <Step n={5} text='本文（JSON): {"text": "金額・店舗名を入力", "source": "tria"}' mono />
+        <Step n={6} text="下記の「個人トークン」をヘッダー値にコピーして使ってください" />
       </Section>
 
       {/* Webhook URL */}
