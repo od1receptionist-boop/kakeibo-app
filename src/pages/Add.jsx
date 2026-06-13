@@ -113,12 +113,15 @@ function ManualForm({ onDone }) {
 function ReceiptForm({ onDone }) {
   const [preview, setPreview] = useState(null)
   const [parsed, setParsed] = useState(null)
+  const [parsedList, setParsedList] = useState(null)
+  const [selected, setSelected] = useState([])
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
 
   const pick = async (e) => {
     const file = e.target.files[0]
     if (!file) return
+    setParsed(null); setParsedList(null); setSelected([])
     const reader = new FileReader()
     reader.onload = async (ev) => {
       const dataUrl = ev.target.result
@@ -127,43 +130,95 @@ function ReceiptForm({ onDone }) {
       const base64 = dataUrl.split(',')[1]
       const mediaType = file.type || 'image/jpeg'
       const res = await uploadReceipt(base64, mediaType)
-      setParsed(res.parsed || null)
+      if (res.parsedList) {
+        setParsedList(res.parsedList)
+        setSelected(res.parsedList.map((_, i) => i))
+      } else {
+        setParsed(res.parsed || null)
+      }
       setLoading(false)
     }
     reader.readAsDataURL(file)
   }
 
   const save = async () => {
-    if (!parsed) return
     setSaving(true)
-    await addTransaction({ ...parsed, source: 'receipt_ocr' })
+    if (parsedList) {
+      const toSave = parsedList.filter((_, i) => selected.includes(i))
+      await Promise.all(toSave.map(tx => addTransaction({ ...tx, source: 'receipt_ocr' })))
+    } else if (parsed) {
+      await addTransaction({ ...parsed, source: 'receipt_ocr' })
+    }
     setSaving(false)
     onDone()
+  }
+
+  const toggleSelect = (i) => {
+    setSelected(prev => prev.includes(i) ? prev.filter(x => x !== i) : [...prev, i])
   }
 
   return (
     <div style={{ padding: '0 16px', display: 'flex', flexDirection: 'column', gap: 16 }}>
       <label style={{
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 8,
-        height: 180,
-        border: '2px dashed var(--border)',
-        borderRadius: 'var(--radius)',
-        cursor: 'pointer',
-        color: 'var(--text-muted)'
+        display: 'flex', flexDirection: 'column', alignItems: 'center',
+        justifyContent: 'center', gap: 8, height: 160,
+        border: '2px dashed var(--border)', borderRadius: 'var(--radius)',
+        cursor: 'pointer', color: 'var(--text-muted)'
       }}>
-        <span style={{ fontSize: 40 }}>📷</span>
-        <span style={{ fontSize: 14 }}>レシート撮影・画像・PDF</span>
+        <span style={{ fontSize: 36 }}>📷</span>
+        <span style={{ fontSize: 13 }}>レシート・アプリ履歴スクリーンショット・PDF</span>
+        <span style={{ fontSize: 11, color: 'var(--accent)' }}>複数取引も一括認識</span>
         <input type="file" accept="image/*,application/pdf" onChange={pick} style={{ display: 'none' }} />
       </label>
 
-      {preview && <img src={preview} alt="receipt" style={{ borderRadius: 8, maxHeight: 200, objectFit: 'contain' }} />}
+      {preview && <img src={preview} alt="preview" style={{ borderRadius: 8, maxHeight: 180, objectFit: 'contain' }} />}
 
       {loading && <p style={{ textAlign: 'center', color: 'var(--text-muted)' }}>AIが読み取り中...</p>}
 
+      {/* 複数取引リスト */}
+      {parsedList && (
+        <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', overflow: 'hidden' }}>
+          <div style={{ padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border)' }}>
+            <span style={{ fontSize: 13, fontWeight: 600 }}>{parsedList.length}件検出</span>
+            <button
+              onClick={() => setSelected(selected.length === parsedList.length ? [] : parsedList.map((_, i) => i))}
+              style={{ fontSize: 12, color: 'var(--accent)' }}
+            >{selected.length === parsedList.length ? '全解除' : '全選択'}</button>
+          </div>
+          {parsedList.map((tx, i) => (
+            <div
+              key={i}
+              onClick={() => toggleSelect(i)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 12,
+                padding: '12px 16px', borderBottom: '1px solid var(--border)',
+                opacity: selected.includes(i) ? 1 : 0.4, cursor: 'pointer'
+              }}
+            >
+              <div style={{
+                width: 20, height: 20, borderRadius: 4, flexShrink: 0,
+                background: selected.includes(i) ? 'var(--accent)' : 'var(--surface2)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 12, color: '#0F0F0F'
+              }}>{selected.includes(i) ? '✓' : ''}</div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 14, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{tx.merchant}</div>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>{tx.date}</div>
+              </div>
+              <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 600, fontSize: 14, color: 'var(--red)', flexShrink: 0 }}>
+                {tx.currency === 'JPY' ? `¥${tx.amount}` : `$${tx.amount}`}
+              </div>
+            </div>
+          ))}
+          <div style={{ padding: 12 }}>
+            <Btn onClick={save} loading={saving} disabled={selected.length === 0}>
+              {selected.length}件を保存
+            </Btn>
+          </div>
+        </div>
+      )}
+
+      {/* 単票レシート */}
       {parsed && (
         <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', padding: 16 }}>
           <Row label="店舗" value={parsed.merchant || '—'} />

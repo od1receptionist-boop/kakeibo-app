@@ -7,7 +7,6 @@ export default requireAuth(async function handler(req, res) {
   const { imageBase64, mediaType = 'image/jpeg' } = req.body
   if (!imageBase64) return res.status(400).json({ error: 'imageBase64 required' })
 
-  // PDF と画像両対応
   const supportedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'application/pdf']
   if (!supportedTypes.includes(mediaType)) {
     return res.status(400).json({ error: `unsupported media type: ${mediaType}` })
@@ -20,24 +19,35 @@ export default requireAuth(async function handler(req, res) {
 
     const response = await client.messages.create({
       model: 'claude-sonnet-4-20250514',
-      max_tokens: 512,
+      max_tokens: 2048,
       messages: [{
         role: 'user',
         content: [
           contentItem,
           {
             type: 'text',
-            text: `このレシート・領収書から以下をJSONで抽出してください。日本語・英語・PDF対応。JSONのみ返す。マークダウン不要。
+            text: `この画像を分析してください。
 
-{
-  "date": "YYYY-MM-DD",
-  "amount": 数値（合計金額。税込みがあれば税込み）,
-  "currency": "USD" または "JPY",
-  "merchant": "店舗名",
-  "items": ["品目1", "品目2"]
-}
+【パターンA】アプリの取引履歴リスト（複数の取引が並んでいる場合）:
+TriaカードやUber、銀行アプリなどのトランザクション一覧スクリーンショットであれば、
+全件を配列で返してください。JSONのみ返す。マークダウン不要。
 
-不明な場合はnullを入れる。`
+{"type": "list", "transactions": [
+  {"date": "YYYY-MM-DD", "amount": 数値, "currency": "USD or JPY", "merchant": "店舗名", "category": "food|transport|shopping|entertainment|health|education|housing|other"},
+  ...
+]}
+
+【パターンB】単票レシート・領収書の場合:
+{"type": "receipt", "date": "YYYY-MM-DD", "amount": 数値, "currency": "USD or JPY", "merchant": "店舗名", "items": ["品目1"]}
+
+判断基準:
+- 複数の取引が縦に並んでいる → パターンA
+- 1枚のレシート・領収書 → パターンB
+- 不明な値はnull
+- 金額が緑色(プラス)はキャッシュバック・入金なので除外
+- 0 USDの取引は除外
+
+JSONのみ返す。`
           }
         ]
       }]
@@ -45,11 +55,15 @@ export default requireAuth(async function handler(req, res) {
 
     const raw = response.content[0]?.text || ''
     const clean = raw.replace(/```json|```/g, '').trim()
-    let parsed
-    try { parsed = JSON.parse(clean) } catch {
+    let result
+    try { result = JSON.parse(clean) } catch {
       return res.status(422).json({ error: 'OCR parse failed', raw })
     }
-    return res.status(200).json({ parsed })
+
+    if (result.type === 'list') {
+      return res.status(200).json({ parsedList: result.transactions || [] })
+    }
+    return res.status(200).json({ parsed: result })
   } catch (err) {
     console.error('Receipt OCR error:', err)
     return res.status(500).json({ error: err.message })
