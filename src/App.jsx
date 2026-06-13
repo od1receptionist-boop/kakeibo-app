@@ -29,15 +29,22 @@ async function applyRecurringForMonth() {
 }
 
 export default function App() {
-  const [session, setSession] = useState(undefined) // undefined = loading
+  const [session, setSession] = useState(undefined)
+  const [isRecovery, setIsRecovery] = useState(false)
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session)
       if (data.session) applyRecurringForMonth().catch(() => {})
     })
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, s) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, s) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        setSession(s)
+        setIsRecovery(true)
+        return
+      }
       setSession(s)
+      setIsRecovery(false)
       if (s) applyRecurringForMonth().catch(() => {})
     })
 
@@ -56,6 +63,7 @@ export default function App() {
   )
 
   if (!session) return <Login onLogin={() => {}} />
+  if (isRecovery) return <Login onLogin={() => setIsRecovery(false)} isRecovery />
 
   return (
     <BrowserRouter>

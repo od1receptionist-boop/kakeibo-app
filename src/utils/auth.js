@@ -35,3 +35,15 @@ export async function getToken() {
   const session = await getSession()
   return session?.access_token || null
 }
+
+export async function resetPassword(email) {
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${window.location.origin}/`
+  })
+  if (error) throw new Error(error.message)
+}
+
+export async function updatePassword(newPassword) {
+  const { error } = await supabase.auth.updateUser({ password: newPassword })
+  if (error) throw new Error(error.message)
+}
