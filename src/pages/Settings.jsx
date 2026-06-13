@@ -1,16 +1,73 @@
 import { useState, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { getDefaultCurrency, setDefaultCurrency } from '../utils/format.js'
-import { logout, supabase } from '../utils/auth.js'
+import { logout, supabase, getToken } from '../utils/auth.js'
 
 export default function Settings({ onLogout }) {
   const webhookUrl = `${window.location.origin}/api/webhook`
   const [currency, setCurrency] = useState(getDefaultCurrency)
   const [webhookToken, setWebhookToken] = useState(null)
+  const [gmailConnected, setGmailConnected] = useState(false)
+  const [gmailChecking, setGmailChecking] = useState(false)
+  const [gmailResult, setGmailResult] = useState(null)
+  const [searchParams, setSearchParams] = useSearchParams()
 
   useEffect(() => {
-    supabase.from('user_profiles').select('webhook_token').single()
-      .then(({ data }) => { if (data) setWebhookToken(data.webhook_token) })
+    supabase.from('user_profiles').select('webhook_token, gmail_connected').single()
+      .then(({ data }) => {
+        if (data) {
+          setWebhookToken(data.webhook_token)
+          setGmailConnected(!!data.gmail_connected)
+        }
+      })
+
+    const gmailStatus = searchParams.get('gmail')
+    if (gmailStatus === 'connected') {
+      setGmailConnected(true)
+      setGmailResult({ ok: true, message: 'Gmailを連携しました' })
+      setSearchParams({})
+    } else if (gmailStatus === 'error') {
+      setGmailResult({ ok: false, message: '連携に失敗しました。再度お試しください' })
+      setSearchParams({})
+    }
   }, [])
+
+  const handleGmailConnect = async () => {
+    const token = await getToken()
+    const res = await fetch('/api/auth/google', {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+    const { url } = await res.json()
+    window.location.href = url
+  }
+
+  const handleGmailDisconnect = async () => {
+    const token = await getToken()
+    await fetch('/api/gmail/disconnect', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` }
+    })
+    setGmailConnected(false)
+    setGmailResult(null)
+  }
+
+  const handleGmailCheck = async () => {
+    setGmailChecking(true)
+    setGmailResult(null)
+    const token = await getToken()
+    const res = await fetch('/api/gmail/check', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` }
+    })
+    const data = await res.json()
+    setGmailResult({
+      ok: res.ok,
+      message: res.ok
+        ? data.count > 0 ? `${data.count}件を取り込みました` : data.message
+        : data.error
+    })
+    setGmailChecking(false)
+  }
 
   const handleCurrency = (c) => {
     setDefaultCurrency(c)
@@ -25,6 +82,55 @@ export default function Settings({ onLogout }) {
   return (
     <div style={{ flex: 1, paddingBottom: 80, paddingTop: 60 }}>
       <h2 style={{ padding: '16px 20px 24px', fontSize: 20, fontWeight: 600 }}>設定</h2>
+
+      {/* Gmail連携 */}
+      <Section title="📧 Gmailカード通知 自動取り込み">
+        {gmailConnected ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ color: 'var(--accent)', fontSize: 16 }}>●</span>
+              <span style={{ fontSize: 14 }}>Gmail連携中</span>
+            </div>
+            <button
+              onClick={handleGmailCheck}
+              disabled={gmailChecking}
+              style={{
+                padding: '12px', borderRadius: 10,
+                background: 'var(--accent)', color: '#0F0F0F',
+                fontWeight: 700, fontSize: 15,
+                opacity: gmailChecking ? 0.6 : 1
+              }}
+            >{gmailChecking ? '確認中...' : 'メールをチェック'}</button>
+            {gmailResult && (
+              <p style={{ fontSize: 13, color: gmailResult.ok ? 'var(--accent)' : 'var(--red)', textAlign: 'center' }}>
+                {gmailResult.ok ? '✓ ' : '✗ '}{gmailResult.message}
+              </p>
+            )}
+            <button
+              onClick={handleGmailDisconnect}
+              style={{ fontSize: 13, color: 'var(--text-muted)', textAlign: 'center', marginTop: 4 }}
+            >連携を解除</button>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <p style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.6 }}>
+              VpassやJCBなどのカード利用通知メールをAIが自動で読み取り登録します。外部サービス不要。
+            </p>
+            {gmailResult && (
+              <p style={{ fontSize: 13, color: 'var(--red)', textAlign: 'center' }}>✗ {gmailResult.message}</p>
+            )}
+            <button
+              onClick={handleGmailConnect}
+              style={{
+                padding: '12px', borderRadius: 10,
+                background: 'var(--surface2)', color: 'var(--text)',
+                fontWeight: 600, fontSize: 15,
+                border: '1px solid var(--border)'
+              }}
+            >Gmailを連携する</button>
+          </div>
+        )}
+      </Section>
 
       {/* 地域設定 */}
       <Section title="🌏 地域設定">
